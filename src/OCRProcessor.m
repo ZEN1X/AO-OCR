@@ -2,8 +2,9 @@ classdef OCRProcessor < handle
   
     properties
         ImageMatrix          % Przechowuje oryginalny obraz wejściowy
-        ExtractedLetters     % Tablica wyekstraktowanych liter (32x28)
+        ExtractedLetters     % Tablica wyekstraktowanych liter (32x28x1 single)
         LetterPositions      % [x, y, szerokość, wysokość]
+        TrainedNet           % Wczytany model sieci neuronowej
     end
 
     methods
@@ -14,25 +15,27 @@ classdef OCRProcessor < handle
             obj.ImageMatrix = imageMatrix;
         end
 
-        function recognizedText = performOCR(obj)
-            % Główna metoda wykonująca proces OCR
-            % Output:
-            %   recognizedText - wykryte literki
-            
-            % Sprawdzenie czy obraz został załadowany
+        function loadNetwork(obj, netPath)
+            % Wczytuje wytrenowany model sieci neuronowej
+            loaded = load(netPath);
+            obj.TrainedNet = loaded.trainedNet;
+            disp('Model sieci załadowany pomyślnie');
+        end
+
+        function [recognizedText, confidence] = performOCR(obj)
+            % Główna metoda wykonująca pełen proces OCR
             if isempty(obj.ImageMatrix)
                 error("Brak obrazu do przetworzenia. Najpierw załaduj obraz.");
             end
+            if isempty(obj.TrainedNet)
+                error("Najpierw załaduj model sieci neuronowej.");
+            end
 
-            % Przetwarzanie wstępne - binaryzacja
             binaryImage = obj.preprocessImage(obj.ImageMatrix);
-            
-            % Ekstrakcja liter i ich pozycji
             [obj.ExtractedLetters, obj.LetterPositions] = obj.extractLetters(binaryImage);
             
-            % Wypisanie wykrytych literek
-            recognizedText = sprintf('Wykryto %d liter(y).', length(obj.ExtractedLetters));
-            obj.visualizeExtractedLetters(); % TODO usunąć
+            [recognizedText, confidence] = obj.classifyLetters();
+            obj.visualizeExtractedLetters();
         end
 
         function binaryImage = preprocessImage(~, imageMatrix)
@@ -62,36 +65,23 @@ classdef OCRProcessor < handle
 
     methods (Access = private)
         function visualizeExtractedLetters(obj)
-            if isempty(obj.ExtractedLetters)
-                disp('Brak liter do wyświetlenia.');
-                return;
-            end
+            if isempty(obj.ExtractedLetters), return; end
             
             fig = figure('Name', 'Wyekstraktowane litery', 'NumberTitle', 'off');
             num_letters = length(obj.ExtractedLetters);
-            
             rows = floor(sqrt(num_letters));
             cols = ceil(num_letters/rows);
-            if rows*cols < num_letters
-                cols = cols + 1;
-            end
             
-            try
-                for idx = 1:num_letters
-                    subplot(rows, cols, idx);
-                    
-                    imshow(obj.ExtractedLetters{idx});
-                    
-                    title(sprintf('Litera %d', idx), 'FontSize', 8);
-                    axis off;
-                end
+            for idx = 1:num_letters
+                subplot(rows, cols, idx);
+                img = obj.ExtractedLetters{idx};
                 
-                sgtitle(sprintf('Wyekstraktowane litery (%d)', num_letters), 'FontSize', 12);
-                
-            catch ME
-                close(fig);
-                rethrow(ME);
+                % Konwersja do formatu wyświetlania (odwrócenie kolorów)
+                imshow(1 - img, 'InitialMagnification', 500); % 1 - img dla lepszej wizualizacji
+                title(sprintf('Litera %d', idx), 'FontSize', 8);
+                axis off;
             end
+            sgtitle(sprintf('Wyekstraktowane litery (%d)', num_letters), 'FontSize', 12);
         end
 
         function [all_letters, letter_positions] = extractLetters(obj, binary_image)
@@ -270,7 +260,7 @@ classdef OCRProcessor < handle
 
         function normalized_letter = resizeAndNormalizeLetter(~, letter, avg_height)
             if isempty(letter) || all(size(letter) == 0)
-                normalized_letter = false(32, 28); % typ 'logical'
+                normalized_letter = ones(32, 28, 'single'); % Białe tło
                 return;
             end
 
@@ -299,8 +289,27 @@ classdef OCRProcessor < handle
             % Wstaw przeskalowaną literę
             resized(start_row:end_row, start_col:end_col) = scaled;
             
-            % Konwersja na pojedynczą precyzję
-            normalized_letter = single(resized); % Tylko wartości 0.0 i 1.0
+            % Inwersja kolorów
+            normalized_letter = single(~resized); % 32x28x1 single [0-1]
+        end
+
+
+        function [text, confidence] = classifyLetters(obj)
+            numLetters = length(obj.ExtractedLetters);
+            text = '';
+            confidence = zeros(1, numLetters);
+            
+            for i = 1:numLetters
+                letterImage = obj.ExtractedLetters{i};
+                
+                letterImage = reshape(letterImage, [32, 28, 1, 1]);
+                
+                [predictedLabel, scores] = classify(obj.TrainedNet, letterImage);
+                [~, idx] = max(scores);
+                
+                text = [text char(predictedLabel)];
+                confidence(i) = scores(idx);
+            end
         end
     end
 end
