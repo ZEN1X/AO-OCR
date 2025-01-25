@@ -314,11 +314,11 @@ end
 
 
 %processImage('ocr9.png');
-processImage("imageAO.jpg")
+% processImage("imageAO.jpg")
 generateTextToFile('test1.png', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ a b c d e f g h i j k l m n o p q r s t u v w x y z', 12, 1600, 200, 'Times New Roman');
 processImage('test1.png')
-generateTextToFile('test2.png', 'g ó w n o', 30, 8000, 200, 'Times New Roman');
-processImage('test2.png')
+% generateTextToFile('test2.png', 'g ó w n o', 30, 8000, 200, 'Times New Roman');
+% processImage('test2.png')
 
 %generateTextToFile('test3.png', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 36, 1200, 200, 'Arial');
 %processImage('test3.png')
