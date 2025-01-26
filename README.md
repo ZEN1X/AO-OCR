@@ -13,8 +13,6 @@
 4. **Dodatkowe opcje:**
    - Przycisk `Deweloper`, otwiera okno z zaawansowanymi funkcjami - ładowanie modelu, trening.
 
---
-
 ## Architektura systemu
 
 System OCR składa się z graficznego interfejsu użytkownika (GUI) oraz procesora OCR. GUI, zaprojektowane w MATLAB przy użyciu funkcji `uifigure`, umożliwia intuicyjne ładowanie obrazów, uruchamianie procesu rozpoznawania oraz przeglądanie wyników. Procesor OCR przetwarza obrazy i klasyfikuje znaki za pomocą wytrenowanej sieci neuronowej, co zapewnia modularność i łatwość utrzymania systemu.
@@ -27,7 +25,7 @@ Sieć neuronowa w projekcie OCR jest dwuwarstwową konwolucyjną siecią neurono
 
 Proces przetwarzania obrazów w OCR obejmuje binaryzację, co oddziela litery od tła, ekstrakcję i sortowanie liter oraz ich normalizację do standardowego rozmiaru 32x28 pikseli. Dodatkowo, małe komponenty, takie jak kropki, są łączone z literami, co jest kluczowe dla poprawnego rozpoznawania nietypowych znaków.
 
-## Testowanie i Walidacja
+## Testowanie i walidacja
 
 System OCR został przetestowany na różnych obrazach z różnymi czcionkami i rozmiarami tekstu, co potwierdziło jego skuteczność w rozpoznawaniu liter i cyfr. Proces normalizacji i skalowania liter poprawił wyniki klasyfikacji, minimalizując wpływ zmiennych rozmiarów i proporcji znaków.
 
