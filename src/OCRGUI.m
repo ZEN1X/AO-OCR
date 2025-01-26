@@ -19,7 +19,7 @@ classdef OCRGUI < handle
             obj.OCRProcessor = ocrProcessor;
 
             % Główne okno
-            obj.UIFigure = uifigure(Name = "AO_OCR", Position = [100, 100, 500, 600]);
+            obj.UIFigure = uifigure(Name = "AO_OCR", Position = [100, 100, 500, 600], Icon='assets/icon.png');
 
             % Layout główny
             gridLayout = uigridlayout(obj.UIFigure, [3, 1], RowHeight = {'3x', '1x', 80}, ColumnWidth = {'1x'});
