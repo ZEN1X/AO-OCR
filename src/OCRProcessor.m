@@ -35,8 +35,9 @@ classdef OCRProcessor < handle
             [obj.ExtractedLetters, obj.LetterPositions] = obj.extractLetters(binaryImage);
             
             [recognizedText, confidence] = obj.classifyLetters();
-            obj.visualizeExtractedLetters();
+            %obj.visualizeExtractedLetters();
         end
+        
 
         function binaryImage = preprocessImage(~, imageMatrix)
             % Przetwarzanie wstępne obrazu
@@ -55,8 +56,11 @@ classdef OCRProcessor < handle
                 imageMatrix = im2double(imageMatrix);
             end
             
+            
             % Binaryzacja z odwróceniem (białe litery na czarnym tle)
-            binaryImage = ~imbinarize(imageMatrix, graythresh(imageMatrix));
+            binaryImage = ~imbinarize(imageMatrix, graythresh(imageMatrix)*1.4);
+            se = strel('rectangle', [3, 3]); % Element strukturalny do erozji
+            binaryImage = imerode(binaryImage, se);
             
             % Oczyszczanie z szumu
             binaryImage = bwareaopen(binaryImage, 20);
@@ -67,7 +71,7 @@ classdef OCRProcessor < handle
         function visualizeExtractedLetters(obj)
             if isempty(obj.ExtractedLetters), return; end
             
-            fig = figure('Name', 'Wyekstraktowane litery', 'NumberTitle', 'off');
+            %fig = figure('Name', 'Wyekstraktowane litery', 'NumberTitle', 'off');
             num_letters = length(obj.ExtractedLetters);
             rows = floor(sqrt(num_letters));
             cols = ceil(num_letters/rows);
@@ -169,7 +173,6 @@ classdef OCRProcessor < handle
             if ~isempty(props)
                 % Oblicz średnią wysokość liter w linii
                 letter_heights = arrayfun(@(x) x.BoundingBox(4), props);
-                average_height = mean(letter_heights);
                 
                 % Przetwarzaj każdą część
                 for k = 1:num
@@ -180,7 +183,7 @@ classdef OCRProcessor < handle
                     
                     % Ekstrakcja i normalizacja litery
                     letter = obj.extractSingleLetter(line_image, props(k).BoundingBox);
-                    normalized_letter = obj.resizeAndNormalizeLetter(letter, average_height);
+                    normalized_letter = obj.resizeAndNormalizeLetter(letter);
                     
                     % Zapisz wyniki
                     line_letters{end+1} = normalized_letter;
@@ -258,41 +261,41 @@ classdef OCRProcessor < handle
             bbox = [min_x, min_y, max_x-min_x, max_y-min_y];
         end
 
-        function normalized_letter = resizeAndNormalizeLetter(~, letter, avg_height)
-            if isempty(letter) || all(size(letter) == 0)
-                normalized_letter = ones(32, 28, 'single'); % Białe tło
-                return;
-            end
-
-            % Określ docelowy rozmiar
-            [h, w] = size(letter);
-            if h <= 0.7*avg_height
-                target_height = 20;
-                target_width = 18;
-            else
-                target_height = 32;
-                target_width = 28;
-            end
-
-            % Skalowanie
-            scaled = imresize(logical(letter), [target_height, target_width]);
-            
-            % Przygotuj macierz wynikową
-            resized = false(32, 28);
-            
-            % Oblicz bezpieczne marginesy
-            start_row = max(1, floor((32 - target_height)/2) + 1);
-            end_row = min(32, start_row + target_height - 1);
-            start_col = max(1, floor((28 - target_width)/2) + 1);
-            end_col = min(28, start_col + target_width - 1);
-
-            % Wstaw przeskalowaną literę
-            resized(start_row:end_row, start_col:end_col) = scaled;
-            
-            % Inwersja kolorów
-            normalized_letter = single(~resized); % 32x28x1 single [0-1]
+    function normalized_letter = resizeAndNormalizeLetter(~, letter)
+        if isempty(letter) || all(size(letter) == 0)
+            normalized_letter = ones(32, 28, 'single'); % Białe tło
+            return;
         end
-
+    
+        [rows, cols] = find(letter);
+        cropped_letter = letter(min(rows):max(rows), min(cols):max(cols));
+        [h, w] = size(cropped_letter);
+    
+        if w / h < 0.3 % Specjalne traktowanie litery I
+            target_height = 28;
+            target_width = 18;
+            scaled_letter = imresize(cropped_letter, [target_height, target_width]);
+            padded_height = target_height + 4; % Dodajemy 2 piksele z góry i do
+            padded_width = target_width + 4;  % Dodajemy 2 piksele z lewej i prawej
+            padded_letter = ones(padded_height, padded_width, 'single');
+            padded_letter(3:end-2, 3:end-2) = 1 - scaled_letter;
+            resized_letter = ones(32, 28, 'single'); 
+            top_margin = max(0, floor((32 - padded_height) / 2));
+            left_margin = max(0, floor((28 - padded_width) / 2)); 
+            resized_letter(top_margin + 1:top_margin + padded_height, ...
+                           left_margin + 1:left_margin + padded_width) = padded_letter;
+        else
+            target_height = 32;
+            target_width = 28;
+            scaled_letter = imresize(cropped_letter, [target_height, target_width]);
+            resized_letter = ones(32, 28, 'single'); 
+            top_margin = max(0, floor((32 - target_height) / 2));
+            left_margin = max(0, floor((28 - target_width) / 2));
+            resized_letter(top_margin + 1:top_margin + target_height, ...
+                           left_margin + 1:left_margin + target_width) = 1 - scaled_letter; % Czarna litera na białym tle
+        end
+        normalized_letter = resized_letter;
+    end
 
         function [text, confidence] = classifyLetters(obj)
             numLetters = length(obj.ExtractedLetters);
