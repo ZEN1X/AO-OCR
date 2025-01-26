@@ -76,16 +76,16 @@ classdef OCRProcessor < handle
             rows = floor(sqrt(num_letters));
             cols = ceil(num_letters/rows);
             
-            %for idx = 1:num_letters
-                %subplot(rows, cols, idx);
-                %img = obj.ExtractedLetters{idx};
+            for idx = 1:num_letters
+                subplot(rows, cols, idx);
+                img = obj.ExtractedLetters{idx};
                 
                 % Konwersja do formatu wyświetlania (odwrócenie kolorów)
-                %imshow(1 - img, 'InitialMagnification', 500); % 1 - img dla lepszej wizualizacji
-                %title(sprintf('Litera %d', idx), 'FontSize', 8);
-                %axis off;
-            %end
-            %sgtitle(sprintf('Wyekstraktowane litery (%d)', num_letters), 'FontSize', 12);
+                imshow(1 - img, 'InitialMagnification', 500); % 1 - img dla lepszej wizualizacji
+                title(sprintf('Litera %d', idx), 'FontSize', 8);
+                axis off;
+            end
+            sgtitle(sprintf('Wyekstraktowane litery (%d)', num_letters), 'FontSize', 12);
         end
 
         function [all_letters, letter_positions] = extractLetters(obj, binary_image)
@@ -173,7 +173,6 @@ classdef OCRProcessor < handle
             if ~isempty(props)
                 % Oblicz średnią wysokość liter w linii
                 letter_heights = arrayfun(@(x) x.BoundingBox(4), props);
-                average_height = mean(letter_heights);
                 
                 % Przetwarzaj każdą część
                 for k = 1:num
@@ -184,7 +183,7 @@ classdef OCRProcessor < handle
                     
                     % Ekstrakcja i normalizacja litery
                     letter = obj.extractSingleLetter(line_image, props(k).BoundingBox);
-                    normalized_letter = obj.resizeAndNormalizeLetter(letter, average_height);
+                    normalized_letter = obj.resizeAndNormalizeLetter(letter);
                     
                     % Zapisz wyniki
                     line_letters{end+1} = normalized_letter;
@@ -262,7 +261,7 @@ classdef OCRProcessor < handle
             bbox = [min_x, min_y, max_x-min_x, max_y-min_y];
         end
 
-    function normalized_letter = resizeAndNormalizeLetter(~, letter, avg_height)
+    function normalized_letter = resizeAndNormalizeLetter(~, letter)
         if isempty(letter) || all(size(letter) == 0)
             normalized_letter = ones(32, 28, 'single'); % Białe tło
             return;
@@ -276,11 +275,11 @@ classdef OCRProcessor < handle
             target_height = 28;
             target_width = 18;
             scaled_letter = imresize(cropped_letter, [target_height, target_width]);
-            padded_height = target_height + 4; % Dłuodajemy 2 piksele z góry i do
+            padded_height = target_height + 4; % Dodajemy 2 piksele z góry i do
             padded_width = target_width + 4;  % Dodajemy 2 piksele z lewej i prawej
-            padded_letter = ones(padded_height, padded_width, 'single'); % Białe tło
-            padded_letter(3:end-2, 3:end-2) = 1 - scaled_letter; % Czarna litera na białym tle
-            resized_letter = ones(32, 28, 'single'); % Białe tło
+            padded_letter = ones(padded_height, padded_width, 'single');
+            padded_letter(3:end-2, 3:end-2) = 1 - scaled_letter;
+            resized_letter = ones(32, 28, 'single'); 
             top_margin = max(0, floor((32 - padded_height) / 2));
             left_margin = max(0, floor((28 - padded_width) / 2)); 
             resized_letter(top_margin + 1:top_margin + padded_height, ...
@@ -297,9 +296,6 @@ classdef OCRProcessor < handle
         end
         normalized_letter = resized_letter;
     end
-
-
-
 
         function [text, confidence] = classifyLetters(obj)
             numLetters = length(obj.ExtractedLetters);
